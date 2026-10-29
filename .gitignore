@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Paketleme çıktıları (paketle.bat / setup_olustur.bat üretir)
+build/
+dist/
+*.spec
+assets/
+installer/Output/
+
+# Editör ayarları
+.vscode/
+.idea/
+
+# Windows
+Thumbs.db
+desktop.ini

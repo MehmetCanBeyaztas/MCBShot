@@ -1,0 +1,14 @@
+PySide6>=6.7
+mss>=9.0
+
+# OCR (Windows'un yerleşik metin tanıma motoru)
+winrt-runtime
+winrt-Windows.Media.Ocr
+winrt-Windows.Globalization
+winrt-Windows.Graphics.Imaging
+winrt-Windows.Storage.Streams
+winrt-Windows.Foundation
+winrt-Windows.Foundation.Collections
+
+# Kaydırmalı ekran görüntüsünde görüntü parçalarını eşleştirmek için
+numpy

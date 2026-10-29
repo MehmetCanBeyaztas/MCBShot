@@ -1,0 +1,6 @@
+# Satır sonlarını depoda tek tip (LF) tut; Windows'ta çalışması şart olanlar CRLF kalsın
+* text=auto
+*.bat text eol=crlf
+*.iss text eol=crlf
+*.png binary
+*.ico binary
