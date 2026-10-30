@@ -16,6 +16,7 @@ from PySide6.QtWidgets import (QDialog, QDialogButtonBox, QGraphicsView, QHBoxLa
 
 from .. import export, icons, ocr
 from ..history import Entry, HistoryStore
+from ..i18n import tr
 from ..settings import Settings
 from .canvas import AnnotationView
 from .commands import CropCommand
@@ -239,7 +240,7 @@ class EditorCanvas(AnnotationView):
 class OcrTextDialog(QDialog):
     def __init__(self, text: str, note: str, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Görüntüdeki metin")
+        self.setWindowTitle(tr("Görüntüdeki metin"))
         self.resize(520, 360)
         lay = QVBoxLayout(self)
         info = QLabel(note)
@@ -248,7 +249,7 @@ class OcrTextDialog(QDialog):
         self.edit = QPlainTextEdit(text)
         lay.addWidget(self.edit)
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
-        copy_btn = buttons.addButton("Tekrar kopyala", QDialogButtonBox.ButtonRole.ActionRole)
+        copy_btn = buttons.addButton(tr("Tekrar kopyala"), QDialogButtonBox.ButtonRole.ActionRole)
         copy_btn.clicked.connect(lambda: export.copy_text(self.edit.toPlainText()))
         buttons.rejected.connect(self.reject)
         lay.addWidget(buttons)
@@ -281,39 +282,39 @@ class EditorWindow(QWidget):
         self.canvas.undo_stack.indexChanged.connect(self._update_title)
 
         bar = Bar(self)
-        undo_btn = bar.add_button(icons.tool_icon("undo"), "Geri al (Ctrl+Z)", self.canvas.undo_stack.undo)
-        redo_btn = bar.add_button(icons.tool_icon("redo"), "İleri al (Ctrl+Y)", self.canvas.undo_stack.redo)
+        undo_btn = bar.add_button(icons.tool_icon("undo"), tr("Geri al (Ctrl+Z)"), self.canvas.undo_stack.undo)
+        redo_btn = bar.add_button(icons.tool_icon("redo"), tr("İleri al (Ctrl+Y)"), self.canvas.undo_stack.redo)
         undo_btn.setEnabled(False)
         redo_btn.setEnabled(False)
         self.canvas.undo_stack.canUndoChanged.connect(undo_btn.setEnabled)
         self.canvas.undo_stack.canRedoChanged.connect(redo_btn.setEnabled)
         self.canvas.add_delete_button(bar)
         bar.add_separator()
-        bar.add_button(icons.tool_icon("copy"), "Panoya kopyala (Ctrl+C)", self.copy)
-        bar.add_button(icons.tool_icon("save"), "Dosyaya kaydet (Ctrl+S)", lambda: self.save(False))
-        bar.add_button(icons.tool_icon("ocr"), "Metni kopyala – görüntüdeki yazıyı panoya alır (Ctrl+T)",
+        bar.add_button(icons.tool_icon("copy"), tr("Panoya kopyala (Ctrl+C)"), self.copy)
+        bar.add_button(icons.tool_icon("save"), tr("Dosyaya kaydet (Ctrl+S)"), lambda: self.save(False))
+        bar.add_button(icons.tool_icon("ocr"), tr("Metni kopyala – görüntüdeki yazıyı panoya alır (Ctrl+T)"),
                        self.copy_text)
         bar.add_separator()
-        bar.add_button(icons.tool_icon("folder"), "Klasörde göster", self.show_in_folder)
+        bar.add_button(icons.tool_icon("folder"), tr("Klasörde göster"), self.show_in_folder)
 
         view_bar = Bar(self)
-        self.crop_btn = view_bar.add_button(icons.tool_icon("crop"), "Kırp – tutmak istediğiniz alanı sürükleyin\n"
-                                            "(Esc / sağ tık: vazgeç, Ctrl+Z: geri al)", self._crop_clicked,
-                                            checkable=True)
+        self.crop_btn = view_bar.add_button(icons.tool_icon("crop"), tr("Kırp – tutmak istediğiniz alanı sürükleyin\n"
+                                                                        "(Esc / sağ tık: vazgeç, Ctrl+Z: geri al)"),
+                                            self._crop_clicked, checkable=True)
         self.canvas.cropModeChanged.connect(self.crop_btn.setChecked)
         self.canvas.cropModeChanged.connect(lambda on: None if on else self._set_status(""))
         view_bar.add_separator()
-        view_bar.add_button(icons.tool_icon("zoom_out"), "Uzaklaştır (Ctrl+-, Ctrl+tekerlek)",
+        view_bar.add_button(icons.tool_icon("zoom_out"), tr("Uzaklaştır (Ctrl+-, Ctrl+tekerlek)"),
                             lambda: self.canvas.zoom_by(1 / 1.25))
-        self.zoom_label = QLabel("%100")
+        self.zoom_label = QLabel(tr("%{value}", value=100))
         self.zoom_label.setObjectName("mcbStatus")
         self.zoom_label.setMinimumWidth(52)
         self.zoom_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         view_bar._layout.addWidget(self.zoom_label)
-        view_bar.add_button(icons.tool_icon("zoom_in"), "Yakınlaştır (Ctrl++, Ctrl+tekerlek)",
+        view_bar.add_button(icons.tool_icon("zoom_in"), tr("Yakınlaştır (Ctrl++, Ctrl+tekerlek)"),
                             lambda: self.canvas.zoom_by(1.25))
-        view_bar.add_button(icons.tool_icon("fit"), "Pencereye sığdır (Ctrl+0)\n%100: Ctrl+1", self.canvas.fit)
-        self.canvas.zoomChanged.connect(lambda z: self.zoom_label.setText(f"%{round(z * 100)}"))
+        view_bar.add_button(icons.tool_icon("fit"), tr("Pencereye sığdır (Ctrl+0)\n%100: Ctrl+1"), self.canvas.fit)
+        self.canvas.zoomChanged.connect(lambda z: self.zoom_label.setText(tr("%{value}", value=round(z * 100))))
 
         self.status = QLabel("")
         self.status.setObjectName("mcbStatus")
@@ -360,14 +361,14 @@ class EditorWindow(QWidget):
             return
         if not self.canvas.is_cropped():
             self.canvas.set_crop_mode(True)
-            self._set_status("Tutmak istediğiniz alanı sürükleyin.")
+            self._set_status(tr("Tutmak istediğiniz alanı sürükleyin."))
             return
         # Zaten kırpılmış: yeniden kırp ya da kırpmayı kaldır
         self.crop_btn.setChecked(False)
         menu = QMenu(self)
         menu.setStyleSheet(BAR_QSS)
-        menu.addAction("Yeniden kırp…").triggered.connect(lambda: self.canvas.set_crop_mode(True))
-        menu.addAction("Kırpmayı kaldır (tüm görüntü)").triggered.connect(self._uncrop)
+        menu.addAction(tr("Yeniden kırp…")).triggered.connect(lambda: self.canvas.set_crop_mode(True))
+        menu.addAction(tr("Kırpmayı kaldır (tüm görüntü)")).triggered.connect(self._uncrop)
         menu.exec(self.crop_btn.mapToGlobal(self.crop_btn.rect().bottomLeft()))
 
     def _uncrop(self) -> None:
@@ -396,7 +397,7 @@ class EditorWindow(QWidget):
     def copy(self) -> None:
         self.persist()
         export.copy_image(self.canvas.render_image())
-        self._set_status("Panoya kopyalandı.")
+        self._set_status(tr("Panoya kopyalandı."))
 
     def save(self, quick: bool = False) -> None:
         self.persist()
@@ -408,17 +409,17 @@ class EditorWindow(QWidget):
         try:
             export.save_image(image, path, fmt, self.settings.get("quality"))
         except OSError as ex:
-            QMessageBox.warning(self, "Kaydedilemedi", str(ex))
+            QMessageBox.warning(self, tr("Kaydedilemedi"), str(ex))
             return
         if self.settings.get("copy_after_save"):
             export.copy_image(image)
         self.entry.saved_path = str(path)
         self.store.set_saved_path(self.entry.id, str(path))
-        self._set_status(f"Kaydedildi: {path.name}")
+        self._set_status(tr("Kaydedildi: {name}", name=path.name))
 
     def copy_text(self) -> None:
         self.persist()
-        self._set_status("Metin okunuyor…")
+        self._set_status(tr("Metin okunuyor…"))
         self.setCursor(Qt.CursorShape.BusyCursor)
         ocr.recognize_async(self.canvas.render_image(), self._on_ocr_done)
 
@@ -426,19 +427,19 @@ class EditorWindow(QWidget):
         self.unsetCursor()
         if error:
             self._set_status("")
-            QMessageBox.warning(self, "Metin okunamadı", error)
+            QMessageBox.warning(self, tr("Metin okunamadı"), error)
             return
         text = result.text.strip()
         if not text:
-            self._set_status("Görüntüde yazı bulunamadı.")
+            self._set_status(tr("Görüntüde yazı bulunamadı."))
             return
         export.copy_text(text)
         self.store.set_ocr_text(self.entry.id, text)
         lines = text.count("\n") + 1
-        self._set_status(f"Metin panoya kopyalandı ({lines} satır).")
-        note = "Bu metin panoya kopyalandı. İsterseniz düzeltip tekrar kopyalayabilirsiniz."
+        self._set_status(tr("Metin panoya kopyalandı ({lines} satır).", lines=lines))
+        note = tr("Bu metin panoya kopyalandı. İsterseniz düzeltip tekrar kopyalayabilirsiniz.")
         if result.fallback:
-            note = ocr.FALLBACK_HINT + "\n\n" + note
+            note = tr(ocr.FALLBACK_HINT) + "\n\n" + note
         OcrTextDialog(text, note, self).exec()
 
     def show_in_folder(self) -> None:
@@ -457,6 +458,6 @@ class EditorWindow(QWidget):
         try:
             self.persist()
         except OSError as ex:
-            QMessageBox.warning(self, "Değişiklikler kaydedilemedi", str(ex))
+            QMessageBox.warning(self, tr("Değişiklikler kaydedilemedi"), str(ex))
         self.closed.emit(self.entry.id)
         super().closeEvent(e)

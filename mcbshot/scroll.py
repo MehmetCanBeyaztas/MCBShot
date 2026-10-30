@@ -17,6 +17,8 @@ from PySide6.QtCore import QObject, QPoint, QRect, Qt, QTimer, Signal
 from PySide6.QtGui import QCursor, QGuiApplication, QImage
 from PySide6.QtWidgets import QHBoxLayout, QLabel, QPushButton, QWidget
 
+from .i18n import tr
+
 log = logging.getLogger("MCBShot")
 
 MAX_HEIGHT = 30000        # fiziksel px; daha uzun sayfalar burada kesilir
@@ -157,9 +159,9 @@ class ScrollControl(QWidget):
             QPushButton { background: #34373c; border: 1px solid #555; border-radius: 4px; padding: 4px 10px; }
             QPushButton:hover { background: #2f8cff; }
         """)
-        self.label = QLabel("Kaydırmalı yakalama başlıyor…")
-        stop = QPushButton("Bitir (Esc)")
-        cancel = QPushButton("İptal")
+        self.label = QLabel(tr("Kaydırmalı yakalama başlıyor…"))
+        stop = QPushButton(tr("Bitir (Esc)"))
+        cancel = QPushButton(tr("İptal"))
         stop.clicked.connect(self.stopRequested.emit)
         cancel.clicked.connect(self.cancelRequested.emit)
         lay = QHBoxLayout(self)
@@ -272,7 +274,7 @@ class ScrollCaptureJob(QObject):
             self._px_per_notch = dy / self._notches
             # Sonraki adım: kayan bölgenin ~%60'ı (yeterli ortak alan kalsın)
             self._notches = max(1, int(st.band * 0.6 / max(1.0, self._px_per_notch)))
-        self.control.label.setText(f"Kaydırılıyor…  {st.height} px")
+        self.control.label.setText(tr("Kaydırılıyor…  {height} px", height=st.height))
         if st.height >= MAX_HEIGHT or self._steps >= MAX_STEPS:
             self._finish("limit")
             return

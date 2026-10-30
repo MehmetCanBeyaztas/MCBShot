@@ -7,20 +7,21 @@ from PySide6.QtWidgets import (QColorDialog, QFrame, QGridLayout, QHBoxLayout, Q
                                QWidget, QWidgetAction)
 
 from .. import icons
+from ..i18n import N_, tr
 from .items import TEXT_STYLES, WIDTH_NAMES, WIDTHS
 
 TOOL_DEFS = (
-    ("select", "Seç / taşı\nNesneleri seçip taşıyın; seçimin boş yerinden sürükleyerek alanı taşıyın"),
-    ("pen", "Kalem"),
-    ("line", "Çizgi (Shift: 45° açılar)"),
-    ("arrow", "Ok (Shift: 45° açılar)"),
-    ("rect", "Dikdörtgen (Shift: kare)"),
-    ("ellipse", "Elips (Shift: daire)"),
-    ("highlighter", "Vurgulayıcı"),
-    ("text", "Yazı (çift tık: düzenle)"),
-    ("step", "Numaralı adım (1, 2, 3...)"),
-    ("blur", "Bulanıklaştır"),
-    ("pixelate", "Pikselleştir"),
+    ("select", N_("Seç / taşı\nNesneleri seçip taşıyın; seçimin boş yerinden sürükleyerek alanı taşıyın")),
+    ("pen", N_("Kalem")),
+    ("line", N_("Çizgi (Shift: 45° açılar)")),
+    ("arrow", N_("Ok (Shift: 45° açılar)")),
+    ("rect", N_("Dikdörtgen (Shift: kare)")),
+    ("ellipse", N_("Elips (Shift: daire)")),
+    ("highlighter", N_("Vurgulayıcı")),
+    ("text", N_("Yazı (çift tık: düzenle)")),
+    ("step", N_("Numaralı adım (1, 2, 3...)")),
+    ("blur", N_("Bulanıklaştır")),
+    ("pixelate", N_("Pikselleştir")),
 )
 
 PALETTE = (
@@ -84,12 +85,12 @@ class ToolPanel(Bar):
         self.view = view
         self._buttons: dict[str, QToolButton] = {}
         for name, tip in TOOL_DEFS:
-            self._buttons[name] = self.add_button(icons.tool_icon(name), tip,
+            self._buttons[name] = self.add_button(icons.tool_icon(name), tr(tip),
                                                   lambda n=name: self._on_tool_clicked(n), checkable=True)
         self.add_separator()
-        self.color_btn = self.add_button(icons.color_icon(view.current_color()), "Renk", self._show_color_menu)
-        self.width_btn = self.add_button(icons.tool_icon("width"), "Kalınlık / boyut", self._show_width_menu)
-        self.text_style_btn = self.add_button(icons.tool_icon("textstyle"), "Yazı arka planı (kutu / kontur)",
+        self.color_btn = self.add_button(icons.color_icon(view.current_color()), tr("Renk"), self._show_color_menu)
+        self.width_btn = self.add_button(icons.tool_icon("width"), tr("Kalınlık / boyut"), self._show_width_menu)
+        self.text_style_btn = self.add_button(icons.tool_icon("textstyle"), tr("Yazı arka planı (kutu / kontur)"),
                                               self._show_text_style_menu)
         view.toolChanged.connect(self._sync)
         view.styleChanged.connect(self._sync)
@@ -129,7 +130,7 @@ class ToolPanel(Bar):
         action.setDefaultWidget(grid_host)
         menu.addAction(action)
         menu.addSeparator()
-        other = menu.addAction("Diğer renk…")
+        other = menu.addAction(tr("Diğer renk…"))
         other.triggered.connect(self._pick_custom_color)
         self._popup(menu, self.color_btn)
 
@@ -138,14 +139,14 @@ class ToolPanel(Bar):
         self.view.set_color(color)
 
     def _pick_custom_color(self) -> None:
-        color = QColorDialog.getColor(self.view.current_color(), self.window(), "Renk seç")
+        color = QColorDialog.getColor(self.view.current_color(), self.window(), tr("Renk seç"))
         if color.isValid():
             self.view.set_color(color)
 
     def _show_text_style_menu(self) -> None:
         menu = QMenu(self)
         for key, label in TEXT_STYLES.items():
-            act = menu.addAction(label)
+            act = menu.addAction(tr(label))
             act.setCheckable(True)
             act.setChecked(key == self.view.text_style)
             act.triggered.connect(lambda checked=False, k=key: self.view.set_text_style(k))
@@ -154,7 +155,7 @@ class ToolPanel(Bar):
     def _show_width_menu(self) -> None:
         menu = QMenu(self)
         for level, (w, label) in enumerate(zip(WIDTHS, WIDTH_NAMES)):
-            act = menu.addAction(icons.width_icon(w), label)
+            act = menu.addAction(icons.width_icon(w), tr(label))
             act.setCheckable(True)
             act.setChecked(level == self.view.level)
             act.triggered.connect(lambda checked=False, lv=level: self.view.set_level(lv))

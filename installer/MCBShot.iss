@@ -65,17 +65,25 @@ Name: "{autoprograms}\{#AppName}"; Filename: "{app}\{#AppExe}"
 Name: "{autodesktop}\{#AppName}"; Filename: "{app}\{#AppExe}"; Tasks: desktopicon
 
 [Registry]
-; Uygulamanın kendi "Windows ile başlat" ayarıyla aynı kayıt
-Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "MCBShot"; ValueData: """{app}\{#AppExe}"""; Tasks: autostart
+; Uygulamanın kendi "Windows ile başlat" ayarıyla aynı kayıt.
+; Programın kendi güncellemesinde yazılmaz: kullanıcının Ayarlar'daki seçimi korunsun.
+Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "MCBShot"; ValueData: """{app}\{#AppExe}"""; Tasks: autostart; Check: not IsAppUpdate
 
 [Run]
 Filename: "{app}\{#AppExe}"; Description: "{cm:LaunchApp}"; Flags: nowait postinstall skipifsilent
+; MCBShot kendini güncellediğinde (sessiz kurulum + /relaunch=1) kurulum bitince yeniden aç
+Filename: "{app}\{#AppExe}"; Flags: nowait; Check: IsAppUpdate
 
 [UninstallRun]
 ; Kaldırmadan önce çalışan MCBShot'u kapat
 Filename: "{sys}\taskkill.exe"; Parameters: "/F /IM {#AppExe}"; Flags: runhidden; RunOnceId: "CloseMCBShot"
 
 [Code]
+function IsAppUpdate: Boolean;
+begin
+  Result := WizardSilent and (ExpandConstant('{param:relaunch|0}') = '1');
+end;
+
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
 begin
   if CurUninstallStep = usUninstall then

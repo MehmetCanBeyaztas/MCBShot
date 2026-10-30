@@ -12,6 +12,7 @@ from PySide6.QtWidgets import (QAbstractItemView, QHBoxLayout, QLabel, QLineEdit
 from . import export, icons
 from .editor.canvas import render_annotated
 from .history import Entry, HistoryStore
+from .i18n import tr
 from .settings import Settings
 
 GALLERY_QSS = """
@@ -42,7 +43,7 @@ class GalleryWindow(QWidget):
     def __init__(self, store: HistoryStore, settings: Settings):
         super().__init__(None, Qt.WindowType.Window)
         self.setObjectName("mcbGallery")
-        self.setWindowTitle("MCBShot – Geçmiş")
+        self.setWindowTitle(tr("MCBShot – Geçmiş"))
         self.setWindowIcon(icons.app_icon())
         self.setStyleSheet(GALLERY_QSS)
         self.resize(1000, 680)
@@ -52,7 +53,7 @@ class GalleryWindow(QWidget):
         self._icon_cache: dict[str, tuple[float, QIcon]] = {}
 
         self.search = QLineEdit()
-        self.search.setPlaceholderText("Ara: tarih (28.10.2026), dosya adı ya da görüntüdeki yazı…")
+        self.search.setPlaceholderText(tr("Ara: tarih (28.10.2026), dosya adı ya da görüntüdeki yazı…"))
         self.search.setClearButtonEnabled(True)
         self.search.textChanged.connect(self._apply_filter)
         self.count_label = QLabel()
@@ -74,16 +75,16 @@ class GalleryWindow(QWidget):
         self.list.itemActivated.connect(lambda item: self.openRequested.emit(item.data(ID_ROLE)))
         self.list.itemSelectionChanged.connect(self._update_buttons)
 
-        self.empty_label = QLabel("Henüz ekran görüntüsü yok.\nPrint Screen ile bir tane alıp kopyaladığınızda "
-                                  "ya da kaydettiğinizde burada görünür.")
+        self.empty_label = QLabel(tr("Henüz ekran görüntüsü yok.\nPrint Screen ile bir tane alıp kopyaladığınızda "
+                                     "ya da kaydettiğinizde burada görünür."))
         self.empty_label.setObjectName("mcbEmpty")
         self.empty_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        self.btn_open = QPushButton("Düzenle")
-        self.btn_copy = QPushButton("Kopyala")
-        self.btn_save = QPushButton("Kaydet…")
-        self.btn_folder = QPushButton("Klasörde göster")
-        self.btn_delete = QPushButton("Sil")
+        self.btn_open = QPushButton(tr("Düzenle"))
+        self.btn_copy = QPushButton(tr("Kopyala"))
+        self.btn_save = QPushButton(tr("Kaydet…"))
+        self.btn_folder = QPushButton(tr("Klasörde göster"))
+        self.btn_delete = QPushButton(tr("Sil"))
         self.btn_open.clicked.connect(self._open_selected)
         self.btn_copy.clicked.connect(self._copy_selected)
         self.btn_save.clicked.connect(self._save_selected)
@@ -98,7 +99,7 @@ class GalleryWindow(QWidget):
             buttons.addWidget(b)
         buttons.addStretch(1)
         buttons.addWidget(self.btn_delete)
-        hint = QLabel("Çift tık: düzenle  •  Sağ tık: diğer işlemler  •  Delete: sil")
+        hint = QLabel(tr("Çift tık: düzenle  •  Sağ tık: diğer işlemler  •  Delete: sil"))
         hint.setObjectName("mcbCount")
 
         root = QVBoxLayout(self)
@@ -165,7 +166,7 @@ class GalleryWindow(QWidget):
             item.setHidden(not visible)
             shown += visible
         total = self.list.count()
-        self.count_label.setText(f"{shown} / {total}" if query else f"{total} görüntü")
+        self.count_label.setText(f"{shown} / {total}" if query else tr("{count} görüntü", count=total))
         self.list.setVisible(total > 0)
         self.empty_label.setVisible(total == 0)
         self._update_buttons()
@@ -188,15 +189,15 @@ class GalleryWindow(QWidget):
             item.setSelected(True)
         single = len(self._selected_ids()) == 1
         menu = QMenu(self)
-        for text, slot, enabled in (("Düzenle", self._open_selected, single),
-                                    ("Kopyala", self._copy_selected, single),
-                                    ("Kaydet…", self._save_selected, single),
-                                    ("Klasörde göster", self._folder_selected, single)):
+        for text, slot, enabled in ((tr("Düzenle"), self._open_selected, single),
+                                    (tr("Kopyala"), self._copy_selected, single),
+                                    (tr("Kaydet…"), self._save_selected, single),
+                                    (tr("Klasörde göster"), self._folder_selected, single)):
             act = menu.addAction(text)
             act.setEnabled(enabled)
             act.triggered.connect(slot)
         menu.addSeparator()
-        menu.addAction("Sil").triggered.connect(self._delete_selected)
+        menu.addAction(tr("Sil")).triggered.connect(self._delete_selected)
         menu.exec(self.list.viewport().mapToGlobal(pos))
 
     def keyPressEvent(self, e):
@@ -236,7 +237,7 @@ class GalleryWindow(QWidget):
         try:
             export.save_image(self._rendered(entry), path, fmt, self.settings.get("quality"))
         except OSError as ex:
-            QMessageBox.warning(self, "Kaydedilemedi", str(ex))
+            QMessageBox.warning(self, tr("Kaydedilemedi"), str(ex))
             return
         self.store.set_saved_path(entry.id, str(path))
 
@@ -254,9 +255,9 @@ class GalleryWindow(QWidget):
         if not ids:
             return
         answer = QMessageBox.question(
-            self, "Geçmişten sil",
-            f"Seçili {len(ids)} görüntü geçmişten silinsin mi?\n"
-            "(Daha önce bir klasöre kaydettiğiniz dosyalar silinmez.)")
+            self, tr("Geçmişten sil"),
+            tr("Seçili {count} görüntü geçmişten silinsin mi?\n"
+               "(Daha önce bir klasöre kaydettiğiniz dosyalar silinmez.)", count=len(ids)))
         if answer != QMessageBox.StandardButton.Yes:
             return
         for entry_id in ids:

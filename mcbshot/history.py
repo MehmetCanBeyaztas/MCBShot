@@ -66,7 +66,8 @@ class Entry:
     crop: list[int] | None = None    # [x, y, genişlik, yükseklik]
 
     def display_date(self) -> str:
-        return self.created_at.strftime("%d.%m.%Y %H:%M")
+        from .i18n import language
+        return self.created_at.strftime("%Y-%m-%d %H:%M" if language() == "en" else "%d.%m.%Y %H:%M")
 
     def display_size(self) -> tuple[int, int]:
         return (self.crop[2], self.crop[3]) if self.crop else (self.width, self.height)
@@ -75,7 +76,7 @@ class Entry:
         if not query:
             return True
         hay = _norm(" ".join([
-            self.display_date(), self.created_at.strftime("%Y-%m-%d"),
+            self.display_date(), self.created_at.strftime("%d.%m.%Y %Y-%m-%d"),
             Path(self.saved_path).name if self.saved_path else "",
             self.ocr_text or "",
             " ".join(a.get("text", "") for a in self.annotations if a.get("type") == "text"),

@@ -7,6 +7,8 @@ from pathlib import Path
 
 from PySide6.QtGui import QGuiApplication, QImage, QImageWriter
 
+from .i18n import N_, tr
+
 # ayar adı -> (Qt format adı, uzantı)
 FORMATS = {
     "png": ("PNG", ".png"),
@@ -14,15 +16,15 @@ FORMATS = {
     "webp": ("WEBP", ".webp"),
 }
 FILE_FILTERS = {
-    "png": "PNG resmi (*.png)",
-    "jpg": "JPG resmi (*.jpg *.jpeg)",
-    "webp": "WebP resmi (*.webp)",
+    "png": N_("PNG resmi (*.png)"),
+    "jpg": N_("JPG resmi (*.jpg *.jpeg)"),
+    "webp": N_("WebP resmi (*.webp)"),
 }
 _INVALID_CHARS = re.compile(r'[<>:"/\\|?*\x00-\x1f]')
 
 
 def render_filename(template: str, now: datetime | None = None) -> str:
-    """'{tarih}_{saat}' gibi bir şablondan dosya adı (uzantısız) üretir."""
+    """'{tarih}_{saat}' gibi bir şablondan dosya adı (uzantısız) üretir. İngilizce adlar da geçerli."""
     now = now or datetime.now()
     values = {
         "tarih": now.strftime("%Y-%m-%d"),
@@ -31,6 +33,8 @@ def render_filename(template: str, now: datetime | None = None) -> str:
         "ay": now.strftime("%m"),
         "gun": now.strftime("%d"),
     }
+    for en, tr_name in (("date", "tarih"), ("time", "saat"), ("year", "yil"), ("month", "ay"), ("day", "gun")):
+        values[en] = values[tr_name]
     try:
         name = template.format(**values)
     except (KeyError, IndexError, ValueError):
@@ -70,7 +74,7 @@ def save_image(image: QImage, path: str | Path, fmt: str, quality: int = 90) -> 
     if fmt not in FORMATS:
         fmt = "png"
     if not is_format_supported(fmt):
-        raise OSError(f"{FORMATS[fmt][0]} formatı bu sistemde desteklenmiyor.")
+        raise OSError(tr("{format} formatı bu sistemde desteklenmiyor.", format=FORMATS[fmt][0]))
     img = image
     if fmt == "jpg":
         img = image.convertToFormat(QImage.Format.Format_RGB888)  # JPG saydamlık desteklemez
@@ -78,7 +82,7 @@ def save_image(image: QImage, path: str | Path, fmt: str, quality: int = 90) -> 
     path.parent.mkdir(parents=True, exist_ok=True)
     q = -1 if fmt == "png" else max(1, min(100, int(quality)))
     if not img.save(str(path), FORMATS[fmt][0], q):
-        raise OSError(f"Dosya kaydedilemedi: {path}")
+        raise OSError(tr("Dosya kaydedilemedi: {path}", path=path))
 
 
 def copy_image(image: QImage) -> None:
@@ -111,11 +115,12 @@ def choose_save_target(parent, settings, quick: bool, suggested: str | None = No
     if quick:
         return path, fmt
 
+    filters = {k: tr(v) for k, v in FILE_FILTERS.items()}
     chosen, chosen_filter = QFileDialog.getSaveFileName(
-        parent, "Ekran görüntüsünü kaydet", str(path), ";;".join(FILE_FILTERS.values()), FILE_FILTERS[fmt])
+        parent, tr("Ekran görüntüsünü kaydet"), str(path), ";;".join(filters.values()), filters[fmt])
     if not chosen:
         return None
-    filter_fmt = next((k for k, v in FILE_FILTERS.items() if v == chosen_filter), fmt)
+    filter_fmt = next((k for k, v in filters.items() if v == chosen_filter), fmt)
     fmt = format_from_path(chosen, filter_fmt)
     path = Path(chosen)
     if path.suffix.lower() not in (".png", ".jpg", ".jpeg", ".webp"):

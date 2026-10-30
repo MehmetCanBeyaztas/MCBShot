@@ -15,9 +15,11 @@ from PySide6.QtGui import (QColor, QFont, QImage, QPainter, QPainterPath, QPaint
                            QTextCursor)
 from PySide6.QtWidgets import QGraphicsItem, QGraphicsTextItem, QStyle
 
+from ..i18n import N_
+
 WIDTHS = (2, 3, 5, 8, 12)      # kalınlık seviyeleri (mantıksal px)
-WIDTH_NAMES = ("Çok ince", "İnce", "Orta", "Kalın", "Çok kalın")
-TEXT_STYLES = {"none": "Arka plan yok", "box": "Kutu (arka plan)", "glow": "Kontur"}
+WIDTH_NAMES = (N_("Çok ince"), N_("İnce"), N_("Orta"), N_("Kalın"), N_("Çok kalın"))
+TEXT_STYLES = {"none": N_("Arka plan yok"), "box": N_("Kutu (arka plan)"), "glow": N_("Kontur")}
 HIGHLIGHT_ALPHA = 110
 MIN_HIT = 12.0                 # ince çizgileri de kolay yakalamak için
 

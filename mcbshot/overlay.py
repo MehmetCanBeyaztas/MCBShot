@@ -23,6 +23,7 @@ from .capture import ScreenShot
 from .editor import AnnotationView
 from .editor.toolbar import Bar, ToolPanel
 from .history import HistoryStore
+from .i18n import tr
 from .settings import Settings
 
 log = logging.getLogger("MCBShot")
@@ -94,24 +95,26 @@ class SelectionOverlay(AnnotationView):
         self.tool_panel = ToolPanel(self.viewport(), self)
         self.tool_panel.hide()
         self.action_bar = Bar(self.viewport())
-        undo_btn = self.action_bar.add_button(icons.tool_icon("undo"), "Geri al (Ctrl+Z)", self.undo_stack.undo)
-        redo_btn = self.action_bar.add_button(icons.tool_icon("redo"), "İleri al (Ctrl+Y)", self.undo_stack.redo)
+        undo_btn = self.action_bar.add_button(icons.tool_icon("undo"), tr("Geri al (Ctrl+Z)"), self.undo_stack.undo)
+        redo_btn = self.action_bar.add_button(icons.tool_icon("redo"), tr("İleri al (Ctrl+Y)"), self.undo_stack.redo)
         undo_btn.setEnabled(False)
         redo_btn.setEnabled(False)
         self.undo_stack.canUndoChanged.connect(undo_btn.setEnabled)
         self.undo_stack.canRedoChanged.connect(redo_btn.setEnabled)
         self.add_delete_button(self.action_bar)
         self.action_bar.add_separator()
-        self.action_bar.add_button(icons.tool_icon("scroll"), "Kaydırarak yakala – seçili alanı otomatik aşağı "
-                                   "kaydırıp tüm sayfayı tek görüntü yapar", lambda: self.scrollRequested.emit(self))
-        self.action_bar.add_button(icons.tool_icon("ocr"), "Metni kopyala – seçili alandaki yazıyı panoya alır (Ctrl+T)",
+        self.action_bar.add_button(icons.tool_icon("scroll"), tr("Kaydırarak yakala – seçili alanı otomatik aşağı "
+                                                                 "kaydırıp tüm sayfayı tek görüntü yapar"),
+                                   lambda: self.scrollRequested.emit(self))
+        self.action_bar.add_button(icons.tool_icon("ocr"),
+                                   tr("Metni kopyala – seçili alandaki yazıyı panoya alır (Ctrl+T)"),
                                    lambda: self.ocrRequested.emit(self))
-        self.action_bar.add_button(icons.tool_icon("copy"), "Panoya kopyala (Ctrl+C)",
+        self.action_bar.add_button(icons.tool_icon("copy"), tr("Panoya kopyala (Ctrl+C)"),
                                    lambda: self.copyRequested.emit(self))
-        self.action_bar.add_button(icons.tool_icon("save"), "Kaydet (Ctrl+S)\nHızlı kaydet: Ctrl+Shift+S",
+        self.action_bar.add_button(icons.tool_icon("save"), tr("Kaydet (Ctrl+S)\nHızlı kaydet: Ctrl+Shift+S"),
                                    lambda: self.saveRequested.emit(self, False))
         self.action_bar.add_separator()
-        self.action_bar.add_button(icons.tool_icon("close"), "Kapat (Esc)", self.cancelRequested.emit)
+        self.action_bar.add_button(icons.tool_icon("close"), tr("Kapat (Esc)"), self.cancelRequested.emit)
         self.action_bar.hide()
 
         # Pencereyi doğru monitöre yerleştir (DPI'ı o monitörden alsın)
@@ -437,7 +440,7 @@ class SelectionOverlay(AnnotationView):
         c = self.shot.image.pixelColor(self._to_phys(self._cursor_pos))
         text = f"rgb({c.red()}, {c.green()}, {c.blue()})" if rgb else c.name().upper()
         export.copy_text(text)
-        self._flash = f"Renk kopyalandı: {text}"
+        self._flash = tr("Renk kopyalandı: {color}", color=text)
         self._flash_timer.start()
         self.viewport().update()
 
@@ -515,13 +518,13 @@ class SelectionOverlay(AnnotationView):
         self._paint_box_text(p, QRectF(x, y, w, h), text)
 
     def _paint_hint(self, p: QPainter) -> None:
-        text = "Alan seçmek için sürükleyin   •   Ctrl+A: tüm ekran   •   Esc / sağ tık: iptal"
+        text = tr("Alan seçmek için sürükleyin   •   Ctrl+A: tüm ekran   •   Esc / sağ tık: iptal")
         if self.scroll_mode:
-            text = ("KAYDIRMALI YAKALAMA: kaydırılacak alanı seçin (ör. web sayfasının içerik kısmı)   •   "
-                    "Esc: iptal")
+            text = tr("KAYDIRMALI YAKALAMA: kaydırılacak alanı seçin (ör. web sayfasının içerik kısmı)   •   "
+                      "Esc: iptal")
         elif self.shot.spans:
-            text = ("Alan seçmek için sürükleyin (monitörler arasında da olur)   •   "
-                    "Ctrl+A: bu monitör   •   Ctrl+Shift+A: tüm monitörler   •   Esc: iptal")
+            text = tr("Alan seçmek için sürükleyin (monitörler arasında da olur)   •   "
+                      "Ctrl+A: bu monitör   •   Ctrl+Shift+A: tüm monitörler   •   Esc: iptal")
         p.setFont(self._label_font(10))
         fm = p.fontMetrics()
         w, h = fm.horizontalAdvance(text) + 24, fm.height() + 12
@@ -575,7 +578,7 @@ class SelectionOverlay(AnnotationView):
         p.setPen(QColor("white"))
         p.setFont(self._label_font(8))
         p.drawText(info.adjusted(6, 0, -26, 0), Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
-                   f"X: {c.x()}  Y: {c.y()}\n{color.name().upper()}\nC: rengi kopyala")
+                   f"X: {c.x()}  Y: {c.y()}\n{color.name().upper()}\n" + tr("C: rengi kopyala"))
         p.restore()
 
 
@@ -678,7 +681,7 @@ class CaptureSession(QObject):
         try:
             export.save_image(image, path, fmt, self.settings.get("quality"))
         except OSError as ex:
-            QMessageBox.warning(ov, "Kaydedilemedi", str(ex))
+            QMessageBox.warning(ov, tr("Kaydedilemedi"), str(ex))
             return
         if self.settings.get("copy_after_save"):
             export.copy_image(image)

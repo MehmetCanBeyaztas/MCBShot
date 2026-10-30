@@ -1,6 +1,7 @@
 """Görüntüdeki yazıyı okuma: Windows'un yerleşik OCR motoru (Windows.Media.Ocr).
 
-Türkçe dil paketi yoksa İngilizceye, o da yoksa kullanıcının profil diline düşer.
+Türkçe arayüzde: Türkçe dil paketi yoksa İngilizceye, o da yoksa kullanıcının profil diline düşer.
+İngilizce arayüzde önce kullanıcının Windows'taki dilleri, sonra İngilizce kullanılır.
 OCR arka plan iş parçacığında çalışır; arayüz donmaz.
 """
 from __future__ import annotations
@@ -12,6 +13,9 @@ from dataclasses import dataclass
 from PySide6.QtCore import QObject, QRunnable, QThreadPool, Qt, Signal
 from PySide6.QtGui import QImage
 
+from . import i18n
+from .i18n import N_, tr
+
 log = logging.getLogger("MCBShot")
 
 PREFERRED_LANGS = ("tr", "en-US", "en")
@@ -21,7 +25,7 @@ PREFERRED_LANGS = ("tr", "en-US", "en")
 class OcrResult:
     text: str
     language: str          # kullanılan dil (ör. "tr")
-    fallback: bool         # Türkçe yerine başka dile düşüldü mü
+    fallback: bool         # Türkçe arayüzde Türkçe yerine başka dile düşüldü mü
 
 
 class OcrUnavailable(RuntimeError):
@@ -33,7 +37,11 @@ def _make_engine():
         from winrt.windows.globalization import Language
         from winrt.windows.media.ocr import OcrEngine
     except ImportError as ex:
-        raise OcrUnavailable("OCR bileşeni (winrt) kurulu değil.") from ex
+        raise OcrUnavailable(tr("OCR bileşeni (winrt) kurulu değil.")) from ex
+    if i18n.language() != "tr":
+        engine = OcrEngine.try_create_from_user_profile_languages()
+        if engine is not None:
+            return engine
     for tag in PREFERRED_LANGS:
         lang = Language(tag)
         if OcrEngine.is_language_supported(lang):
@@ -42,7 +50,7 @@ def _make_engine():
                 return engine
     engine = OcrEngine.try_create_from_user_profile_languages()
     if engine is None:
-        raise OcrUnavailable("Bu bilgisayarda hiçbir OCR dil paketi yüklü değil.")
+        raise OcrUnavailable(tr("Bu bilgisayarda hiçbir OCR dil paketi yüklü değil."))
     return engine
 
 
@@ -77,7 +85,8 @@ def recognize(image: QImage) -> OcrResult:
     result = asyncio.run(run())
     text = "\n".join(line.text for line in result.lines)
     lang = engine.recognizer_language.language_tag
-    return OcrResult(text=text, language=lang, fallback=not lang.lower().startswith("tr"))
+    return OcrResult(text=text, language=lang,
+                     fallback=i18n.language() == "tr" and not lang.lower().startswith("tr"))
 
 
 class _Signals(QObject):
@@ -97,7 +106,7 @@ class _OcrTask(QRunnable):
             self.signals.done.emit(None, str(ex))
         except Exception as ex:   # OCR hiçbir zaman uygulamayı çökertmesin
             log.exception("OCR hatası")
-            self.signals.done.emit(None, f"OCR başarısız: {ex}")
+            self.signals.done.emit(None, tr("OCR başarısız: {error}", error=ex))
 
 
 _active: set[_Signals] = set()
@@ -116,5 +125,6 @@ def recognize_async(image: QImage, callback) -> None:
     QThreadPool.globalInstance().start(_OcrTask(image, signals))
 
 
-FALLBACK_HINT = ("Türkçe OCR dil paketi yüklü değil, İngilizce kullanıldı (Türkçe harfler hatalı olabilir). "
-                 "Kurmak için: Ayarlar → Saat ve dil → Dil ve bölge → Türkçe → Dil seçenekleri.")
+# Gösterirken tr() ile çevrilir
+FALLBACK_HINT = N_("Türkçe OCR dil paketi yüklü değil, İngilizce kullanıldı (Türkçe harfler hatalı olabilir). "
+                   "Kurmak için: Ayarlar → Saat ve dil → Dil ve bölge → Türkçe → Dil seçenekleri.")

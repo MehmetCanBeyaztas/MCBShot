@@ -7,8 +7,6 @@ text copying from the screen (OCR), full-page scrolling capture and a searchable
 
 ![Selection screen with editing tools](docs/screenshots/capture.png)
 
-> The app's user interface is currently in **Turkish**. Contributions for other languages are welcome.
-
 ## Features
 - **Instant capture with Print Screen.** The screen dims, you drag a region; size and a pixel magnifier are shown.
   The selection can **span multiple monitors**. High-DPI aware (no offset at 125% / 150% scaling).
@@ -21,6 +19,9 @@ text copying from the screen (OCR), full-page scrolling capture and a searchable
   later and still move an arrow or edit a text. Search by date, file name or **text inside the image**; crop and zoom.
 - **Small things that matter:** delayed capture, copy a pixel's color (C), PNG/JPG/WebP, file name templates,
   start with Windows, configurable hotkeys.
+- **English and Turkish interface.** Follows the Windows language; change it in Settings → General.
+- **Automatic updates.** Checks GitHub Releases, downloads and verifies a new version, then asks before installing.
+  In Settings → General you can have it install without asking, or turn it off.
 
 | Editing later | History gallery |
 |---|---|
@@ -85,7 +86,6 @@ installer and the portable exe and attaches them to a release.
 **Stack:** Python 3.12 · PySide6 (Qt) · mss · Windows.Media.Ocr (winrt) · numpy · SQLite · PyInstaller · Inno Setup
 
 ## Known limitations
-- UI language is Turkish only for now.
 - If monitors use different scaling (e.g. 100% and 125%), a selection stays within one monitor.
 - OCR occasionally misreads decimal commas and symbols such as ₺ (a limit of the Windows engine).
 - Scrolling capture may stop early on constantly changing content such as videos.

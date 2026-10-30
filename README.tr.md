@@ -19,6 +19,9 @@ düzenlenebilen çizimler, ekrandaki yazıyı kopyalama (OCR), tüm sayfanın ek
   yazıyı değiştirebilirsiniz. **Görüntünün içindeki yazıyla** arama, kırpma, yakınlaştırma.
 - **Küçük ama kullanışlı:** gecikmeli yakalama, büyüteçteki rengi kopyalama (C), PNG/JPG/WebP, dosya adı şablonu,
   Windows ile başlat, değiştirilebilir kısayollar.
+- **Türkçe ve İngilizce arayüz:** Windows dilini izler; Ayarlar → Genel'den değiştirilebilir.
+- **Otomatik güncelleme:** GitHub Releases'te yeni sürümü denetler, indirip doğrular, yüklemeden önce sorar.
+  Ayarlar → Genel'den sormadan yüklemeyi seçebilir ya da kapatabilirsiniz.
 
 | Sonradan düzenleme | Geçmiş galerisi |
 |---|---|
@@ -115,6 +118,8 @@ mcbshot/ocr.py             metin tanıma
 mcbshot/scroll.py          kaydırmalı yakalama
 mcbshot/settings*.py       ayarlar ve ayarlar penceresi
 mcbshot/export.py          kopyalama / kaydetme
+mcbshot/i18n.py            arayüz dili ve İngilizce çeviriler
+mcbshot/updater.py         GitHub üzerinden otomatik güncelleme
 installer/MCBShot.iss      kurulum programı (Inno Setup)
 tools/                     simge ve tanıtım görüntüsü üreticileri
 tests/                     otomatik testler
@@ -123,7 +128,6 @@ tests/                     otomatik testler
 Kullanıcı verileri: ayarlar `%APPDATA%\MCBShot`, geçmiş `%LOCALAPPDATA%\MCBShot\history`.
 
 ## Bilinen sınırlar
-- Uygulamanın arayüzü şimdilik yalnızca Türkçe.
 - Monitörlerin ölçekleri farklıysa (biri %100, diğeri %125) seçim tek monitörle sınırlı kalır.
 - OCR, virgüllü sayılarda ve ₺ gibi işaretlerde ara sıra hata yapabilir (Windows motorunun sınırı).
 - Video gibi sürekli değişen içerikte kaydırmalı yakalama erken durabilir.

@@ -7,6 +7,7 @@ import sys
 from pathlib import Path
 
 from . import APP_NAME
+from .i18n import N_
 
 
 def app_data_dir() -> Path:
@@ -20,12 +21,18 @@ def default_save_dir() -> str:
     return str(Path.home() / "Pictures" / APP_NAME)
 
 
-# Kısayol adı -> (ayar anahtarı, açıklama)
+# Kısayol adı -> (ayar anahtarı, açıklama; gösterirken tr() ile çevrilir)
 HOTKEYS = {
-    "capture": ("hotkey_capture", "Ekran görüntüsü al"),
-    "delayed": ("hotkey_delayed", "Gecikmeli ekran görüntüsü"),
-    "scroll": ("hotkey_scroll", "Kaydırmalı (tüm sayfa) ekran görüntüsü"),
-    "history": ("hotkey_history", "Geçmişi aç"),
+    "capture": ("hotkey_capture", N_("Ekran görüntüsü al")),
+    "delayed": ("hotkey_delayed", N_("Gecikmeli ekran görüntüsü")),
+    "scroll": ("hotkey_scroll", N_("Kaydırmalı (tüm sayfa) ekran görüntüsü")),
+    "history": ("hotkey_history", N_("Geçmişi aç")),
+}
+
+UPDATE_MODES = {
+    "ask": N_("Otomatik denetle, yüklemeden önce sor"),
+    "auto": N_("Otomatik denetle ve yükle"),
+    "off": N_("Kapalı"),
 }
 
 DEFAULTS: dict = {
@@ -45,6 +52,9 @@ DEFAULTS: dict = {
     "history_keep_days": 0,   # 0 = süresiz sakla
     "history_max_items": 0,   # 0 = sınırsız
     "text_style": "none",     # yazı arka planı: none | box | glow
+    "language": "auto",       # auto | tr | en
+    "update_mode": "ask",     # ask | auto | off
+    "last_version": "",       # güncellemeden sonra "güncellendi" bildirimi için
 }
 
 

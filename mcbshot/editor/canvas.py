@@ -11,6 +11,7 @@ from PySide6.QtGui import QColor, QImage, QPainter, QPen, QTransform, QUndoStack
 from PySide6.QtWidgets import QFrame, QGraphicsScene, QGraphicsView, QMenu
 
 from .. import icons
+from ..i18n import tr
 from .commands import AddItemsCommand, RemoveItemsCommand, StateCommand
 from .items import (ArrowItem, CensorItem, EllipseItem, LineItem, PenItem, RectItem, StepItem, TextItem,
                     is_annotation, item_from_state, size_for, snap_45)
@@ -104,8 +105,9 @@ class AnnotationView(QGraphicsView):
 
     def add_delete_button(self, bar) -> None:
         """Bir araç çubuğuna 'seçili nesneyi sil' düğmesi ekler (seçim yokken pasif)."""
-        btn = bar.add_button(icons.tool_icon("delete"), "Seçili nesneyi sil (Delete)\n"
-                             "Bir nesneyi seçmek için üzerine tıklayın", self.delete_selected)
+        btn = bar.add_button(icons.tool_icon("delete"), tr("Seçili nesneyi sil (Delete)\n"
+                                                           "Bir nesneyi seçmek için üzerine tıklayın"),
+                             self.delete_selected)
         btn.setEnabled(False)
         self._scene.selectionChanged.connect(lambda: self._sync_delete_button(btn))
 
@@ -466,7 +468,8 @@ class AnnotationView(QGraphicsView):
         menu = QMenu(self)
         menu.setStyleSheet(BAR_QSS)
         count = len(self.selected_annotations())
-        act = menu.addAction(icons.tool_icon("delete"), "Sil" + (f" ({count} nesne)" if count > 1 else "") + "\tDelete")
+        label = tr("Sil ({count} nesne)", count=count) if count > 1 else tr("Sil")
+        act = menu.addAction(icons.tool_icon("delete"), label + "\tDelete")
         act.triggered.connect(self.delete_selected)
         menu.exec(self.viewport().mapToGlobal(pos.toPoint()))
         self.viewport().update()
