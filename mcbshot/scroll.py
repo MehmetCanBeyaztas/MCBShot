@@ -24,7 +24,14 @@ log = logging.getLogger("MCBShot")
 MAX_HEIGHT = 30000        # fiziksel px; daha uzun sayfalar burada kesilir
 MAX_STEPS = 120
 MIN_OVERLAP = 24          # eşleştirme için gereken en az ortak satır
-MATCH_THRESHOLD = 0.6     # ortak satırların en az bu oranı tutmalı
+MATCH_THRESHOLD = 0.6     # kayan piksellerin en az bu oranı tutmalı
+MATCH_COLUMN_STEP = 3     # eşleştirmede her kaçıncı sütuna bakılacağı
+MATCH_ROWS = 300          # eşleştirmede bakılacak en fazla satır sayısı
+MIN_MOVING_PIXELS = 30    # bundan az kayan piksel varsa o konum değerlendirilmez
+MIN_OVERLAP_SHARE = 0.15  # iki kare arasında alanın en az bu kadarı ortak olmalı
+STILL_RATIO = 0.0005     # değişen piksel oranı bunun altındaysa (imleç yanıp sönmesi) kare kaymamış sayılır
+MIN_FOOTER_ROWS = 4       # sabit alt çubuk sayılmak için gereken en az dolu satır
+STATIC_ROW_RATIO = 0.002 # değişen piksel oranı bunun altındaki satır, sabit çubuğa ait sayılır
 SETTLE_POLL_MS = 120      # kaydırma animasyonunun bitmesini beklerken yakalama aralığı
 SETTLE_MAX_POLLS = 10
 
@@ -51,6 +58,26 @@ _MOUSEEVENTF_WHEEL = 0x0800
 _WDA_EXCLUDEFROMCAPTURE = 0x11
 
 
+_user32.WindowFromPoint.argtypes = [wintypes.POINT]
+_user32.WindowFromPoint.restype = wintypes.HWND
+_user32.GetAncestor.argtypes = [wintypes.HWND, wintypes.UINT]
+_user32.GetAncestor.restype = wintypes.HWND
+_GA_ROOT = 2
+_DWMWA_EXTENDED_FRAME_BOUNDS = 9
+WINDOW_EDGE_MARGIN = 6    # pencerenin alt kenarı ve yuvarlak köşeleri görüntüye girmesin
+
+
+def window_bottom_at(x: int, y: int) -> int | None:
+    """Bu noktadaki pencerenin görünen alt kenarı (fiziksel px). Bulunamazsa None."""
+    root = _user32.GetAncestor(_user32.WindowFromPoint(wintypes.POINT(x, y)), _GA_ROOT)
+    if not root:
+        return None
+    rect = wintypes.RECT()
+    result = ctypes.windll.dwmapi.DwmGetWindowAttribute(root, _DWMWA_EXTENDED_FRAME_BOUNDS,
+                                                        ctypes.byref(rect), ctypes.sizeof(rect))
+    return rect.bottom if result == 0 else None
+
+
 def send_wheel(notches: int) -> None:
     """Fare tekerleğini aşağı doğru 'notches' kez çevir (imlecin altındaki pencereye gider)."""
     inp = _INPUT(type=0, mi=_MOUSEINPUT(0, 0, (-120 * notches) & 0xFFFFFFFF, _MOUSEEVENTF_WHEEL, 0, 0))
@@ -64,30 +91,44 @@ def row_signatures(frame: np.ndarray) -> np.ndarray:
     return np.fromiter((hash(row.tobytes()) for row in rgb), dtype=np.int64, count=rgb.shape[0])
 
 
-def informative_rows(frame: np.ndarray) -> np.ndarray:
-    """Tek renk olmayan satırlar (boş satırlar her konumla eşleşeceği için sayılmaz)."""
-    rgb = frame[:, :, :3]
-    return ~np.all(rgb == rgb[:, :1, :], axis=(1, 2))
+def pixel_values(frame: np.ndarray) -> np.ndarray:
+    """Her piksel tek sayı. Tarayıcının görsellerde yaptığı ±1'lik renk oynamaları sayılmasın diye alt bitler atılır."""
+    f = frame.astype(np.uint32) & 0xFC
+    return f[:, :, 0] | (f[:, :, 1] << 8) | (f[:, :, 2] << 16)
 
 
-def find_offset(prev_sig: np.ndarray, cur_sig: np.ndarray, cur_info: np.ndarray,
-                expected: int | None = None) -> int:
-    """cur karesinin prev'e göre kaç satır aşağı kaydığını bulur. Bulunamazsa -1."""
-    n = len(cur_sig)
+def find_offset(prev: np.ndarray, cur: np.ndarray, expected: int | None = None) -> int:
+    """cur karesinin prev'e göre kaç satır aşağı kaydığını bulur. Bulunamazsa -1.
+
+    Satırlar bütün olarak değil piksel piksel karşılaştırılır: seçime giren sabit şeyler (panel çizgisi,
+    açılır kutu) aksi halde satırların çoğunu "farklı" gösterirdi. Sayılan pikseller, arka plan rengi olmayan ve
+    iki karede aynı yerde durmayan, yani gerçekten kayan içeriğe ait olanlardır.
+    """
+    n = prev.shape[0]
+    columns = np.arange(0, prev.shape[1], MATCH_COLUMN_STEP)
+    p, c = prev[:, columns], cur[:, columns]
+    values, counts = np.unique(c, return_counts=True)
+    moving = (c != values[np.argmax(counts)]) & (c != p)
+    rows = np.arange(0, n, max(2, n // MATCH_ROWS))
+    # Ortak alan çok küçükse birkaç pikselin tesadüfen tutması eşleşme sanılmasın
+    overlap = max(MIN_OVERLAP, int(n * MIN_OVERLAP_SHARE))
     candidates = []
-    for dy in range(1, n - MIN_OVERLAP + 1):
-        info = cur_info[:n - dy]
-        k = int(info.sum())
-        if k < 8:
+    for dy in range(1, n - overlap + 1):
+        r = rows[rows < n - dy]
+        mask = moving[r]
+        k = int(np.count_nonzero(mask))
+        if k < MIN_MOVING_PIXELS:
             continue
-        m = int(np.count_nonzero((cur_sig[:n - dy] == prev_sig[dy:]) & info))
-        candidates.append((m / k, dy))
+        candidates.append((np.count_nonzero((c[r] == p[r + dy]) & mask) / k, dy, k))
     if not candidates:
         return -1
-    best = max(score for score, _ in candidates)
+    best = max(score for score, _, _ in candidates)
     if best < MATCH_THRESHOLD:
         return -1
-    good = [dy for score, dy in candidates if score >= best - 0.02]
+    near = [(dy, k) for score, dy, k in candidates if score >= best - 0.02]
+    # Eşit skorlularda çok az pikselle tutan konumlar güvenilmez
+    strongest = max(k for _, k in near)
+    good = [dy for dy, k in near if k * 2 >= strongest]
     if expected:
         return min(good, key=lambda dy: abs(dy - expected))   # tekrar eden desenlerde beklenene en yakını
     return max(good)
@@ -100,10 +141,11 @@ class Stitcher:
         self.first = first
         self.last = first
         self.h = first.shape[0]
-        self.prev_sig = row_signatures(first)
+        self.prev = pixel_values(first)
         self.top: int | None = None      # sabit üst çubuğun bittiği satır
         self.bottom: int | None = None   # sabit alt çubuğun başladığı satır
         self.parts: list[np.ndarray] = []
+        self.tail: np.ndarray | None = None
         self.height = self.h
 
     @property
@@ -112,31 +154,49 @@ class Stitcher:
 
     def add(self, frame: np.ndarray, expected: int | None = None) -> int:
         """Yeni kare ekle. Dönüş: kayma (px), 0 = hiç kaymadı, -1 = eşleşme bulunamadı."""
-        sig = row_signatures(frame)
-        if np.array_equal(sig, self.prev_sig):
+        pixels = pixel_values(frame)
+        changed = pixels != self.prev
+        if changed.mean() < STILL_RATIO:
             return 0
         if self.top is None:
             # İlk kaymada: iki karede aynı yerde duran üst/alt satırlar = sabit çubuklar
-            same = sig == self.prev_sig
+            same = changed.mean(axis=1) < STATIC_ROW_RATIO
             top = int(np.argmin(same)) if not same.all() else 0
             bottom = int(np.argmin(same[::-1])) if not same.all() else 0
             self.top = min(top, int(self.h * 0.4))
             self.bottom = self.h - min(bottom, int(self.h * 0.3))
             self.parts.append(self.first[:self.bottom])
         t, b = self.top, self.bottom
-        dy = find_offset(self.prev_sig[t:b], sig[t:b], informative_rows(frame[t:b]), expected)
+        dy = find_offset(self.prev[t:b], pixels[t:b], expected)
         if dy <= 0:
             return -1
         self.parts.append(frame[b - dy:b])
         self.height += dy
-        self.prev_sig = sig
+        self.prev = pixels
         self.last = frame
         return dy
 
     def result(self) -> np.ndarray:
         if self.top is None:
             return self.first
-        return np.concatenate(self.parts + [self.last[self.bottom:]], axis=0)
+        extra = [self.tail] if self.tail is not None else []
+        return np.concatenate(self.parts + [self.last[self.bottom:]] + extra, axis=0)
+
+    def wants_tail(self) -> bool:
+        """Sayfa kaydı ve seçimde sabit alt çubuk yok: sayfanın sonu seçimin altında kalmış olabilir.
+
+        İlk kaymada tesadüfen aynı kalan boş satırlar alt çubuk sayılmasın: gerçek çubuk baştan sona
+        değişmez ve içinde tek renk olmayan satırlar vardır.
+        """
+        if self.top is None:
+            return False
+        band = pixel_values(self.last[self.bottom:])
+        unchanged = np.array_equal(band, pixel_values(self.first[self.bottom:]))
+        return not unchanged or np.count_nonzero((band != band[:, :1]).any(axis=1)) < MIN_FOOTER_ROWS
+
+    def add_tail(self, tail: np.ndarray) -> None:
+        self.tail = tail
+        self.height += tail.shape[0]
 
 
 def to_qimage(arr: np.ndarray) -> QImage:
@@ -263,6 +323,7 @@ class ScrollCaptureJob(QObject):
         if dy == 0:
             self._no_move += 1
             if self._no_move >= 2:      # iki kez kaymadıysa sayfanın sonuna gelindi
+                self._grab_page_end()
                 self._finish("ok")
                 return
         elif dy < 0:
@@ -279,6 +340,18 @@ class ScrollCaptureJob(QObject):
             self._finish("limit")
             return
         self._scroll()
+
+    def _grab_page_end(self) -> None:
+        """Sayfa sona geldi: seçim pencerenin altına kadar inmiyorsa sayfanın geri kalanı seçimin altındadır."""
+        st, r = self._stitcher, self.rect
+        if not st.wants_tail():
+            return
+        bottom = window_bottom_at(self._point.x(), self._point.y())
+        top = r.y() + r.height()
+        if bottom is None or bottom - WINDOW_EDGE_MARGIN <= top:
+            return
+        raw = self._sct.grab({"left": r.x(), "top": top, "width": r.width(), "height": bottom - WINDOW_EDGE_MARGIN - top})
+        st.add_tail(np.frombuffer(raw.bgra, dtype=np.uint8).reshape(raw.height, raw.width, 4).copy())
 
     # ---- bitiş ----
     def stop(self, cancel: bool = False) -> None:

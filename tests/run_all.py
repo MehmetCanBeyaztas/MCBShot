@@ -22,6 +22,7 @@ TESTS = [
     ("smoke_settings.py", []),
     ("smoke_i18n_update.py", []),
     ("smoke_multimonitor.py", []),
+    ("smoke_scroll_match.py", []),
     ("smoke_scroll.py", ["3000", "60", "40"]),
     ("smoke_app.py", []),
 ]
