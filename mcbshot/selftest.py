@@ -62,6 +62,17 @@ def run() -> int:
     import numpy
     check("numpy", lambda: numpy.__version__)
 
+    def notifications():
+        # Bildirim göstermeden: bileşenler pakette mi, bildirim içeriği hazırlanabiliyor mu
+        from winrt.windows.data.xml.dom import XmlDocument
+        from winrt.windows.ui.notifications import ToastNotification, ToastNotificationManager
+        doc = XmlDocument()
+        doc.load_xml('<toast><visual><binding template="ToastGeneric"><text>t</text></binding></visual></toast>')
+        ToastNotification(doc)
+        ToastNotificationManager.create_toast_notifier_with_id("MCBShot")
+        return "hazır"
+    check("bildirimler", notifications)
+
     report = os.path.join(tempfile.gettempdir(), "mcbshot_selftest.txt")
     with open(report, "w", encoding="utf-8") as fh:
         fh.write("\n".join(lines) + "\n" + ("SONUÇ: BAŞARILI" if ok else "SONUÇ: HATA VAR") + "\n")

@@ -11,10 +11,10 @@ from pathlib import Path
 
 from PySide6.QtCore import (QDir, QLibraryInfo, QLockFile, QObject, QProcess, Qt, QThreadPool, QTimer,
                             QTranslator, QUrl)
-from PySide6.QtGui import QDesktopServices, QGuiApplication
+from PySide6.QtGui import QDesktopServices, QGuiApplication, QImage
 from PySide6.QtWidgets import QApplication, QMenu, QMessageBox, QSystemTrayIcon
 
-from . import APP_NAME, __version__, export, i18n, icons, ocr, updater
+from . import APP_NAME, __version__, export, i18n, icons, ocr, toast, updater
 from .capture import capture_all
 from .editor.window import EditorWindow
 from .gallery import GalleryWindow
@@ -23,7 +23,8 @@ from .hotkey import HotkeyManager, describe_hotkey
 from .i18n import tr
 from .overlay import CaptureSession
 from .scroll import ScrollCaptureJob
-from .settings import HOTKEYS, Settings, app_data_dir, autostart_command, get_autostart, set_autostart
+from .settings import (AUTOSTART_ARG, HOTKEYS, Settings, app_data_dir, autostart_command, get_autostart,
+                       set_autostart)
 from .settings_window import SettingsDialog
 
 log = logging.getLogger(APP_NAME)
@@ -44,7 +45,7 @@ class MCBShotApp(QObject):
         self._gallery: GalleryWindow | None = None
         self._editors: dict[str, EditorWindow] = {}
         self._session: CaptureSession | None = None
-        self._message_action = None     # tepsi bildirimine tıklanınca yapılacak iş
+        self._message_link: str | None = None   # tepsi balonuna tıklanınca açılacak adres/dosya
         self.active_hotkey: str | None = None
 
         self._delay_timer = QTimer(self)
@@ -88,11 +89,17 @@ class MCBShotApp(QObject):
         self.tray.activated.connect(self._on_tray_activated)
         self.tray.messageClicked.connect(self._on_message_clicked)
         self.tray.show()
+        try:
+            toast.register(icons.app_icon().pixmap(256, 256).toImage())
+        except OSError:
+            log.exception("Bildirim adı ve simgesi kaydedilemedi")
+        self.notifier = toast.Notifier(self._balloon, self)
 
         self.hotkeys = HotkeyManager()
         self.hotkeys.activated.connect(self._on_hotkey)
         updated = self._note_version()
-        self._register_hotkeys(announce=not updated)
+        # Windows açılışında karşılama bildirimi gösterme; kısayol sorunu uyarıları yine gösterilir
+        self._register_hotkeys(announce=not updated and AUTOSTART_ARG not in sys.argv)
         self._sync_autostart()
         QTimer.singleShot(3000, self._prune_history)
 
@@ -102,14 +109,26 @@ class MCBShotApp(QObject):
         QTimer.singleShot(UPDATE_FIRST_CHECK_MS, lambda: self.check_updates(manual=False))
 
     # ---- bildirimler ----
-    def notify(self, text: str, icon=QSystemTrayIcon.MessageIcon.Information, ms: int = 4000, on_click=None) -> None:
-        self._message_action = on_click
+    def notify(self, text: str, icon=QSystemTrayIcon.MessageIcon.Information, ms: int = 4000, link: str | None = None,
+               image=None) -> None:
+        """Windows bildirimi. link: tıklanınca açılacak web adresi ya da dosya; image: önizleme."""
+        if not self.notifier.show(text, _folder_of(link), image):
+            self._balloon(text, link, icon, ms)
+
+    def _balloon(self, text: str, link: str | None = None, icon=QSystemTrayIcon.MessageIcon.Information,
+                 ms: int = 6000) -> None:
+        """Eski tepsi balonu (modern bildirim gösterilemezse)."""
+        self._message_link = link
         self.tray.showMessage(APP_NAME, text, icon, ms)
 
     def _on_message_clicked(self) -> None:
-        action, self._message_action = self._message_action, None
-        if action is not None:
-            action()
+        link, self._message_link = self._message_link, None
+        if not link:
+            return
+        if "://" in link:
+            QDesktopServices.openUrl(QUrl(link))
+        elif os.path.exists(link):
+            subprocess.Popen(f'explorer /select,"{os.path.normpath(link)}"')
 
     def _note_version(self) -> bool:
         """Program güncellendiyse bir kez bildir. Güncellendiyse True."""
@@ -123,7 +142,7 @@ class MCBShotApp(QObject):
             pass
         if last and updater.is_newer(__version__, last):
             self.notify(tr("MCBShot {version} sürümüne güncellendi.", version=__version__), ms=6000,
-                        on_click=lambda: QDesktopServices.openUrl(QUrl(updater.RELEASES_URL)))
+                        link=updater.RELEASES_URL)
             return True
         return False
 
@@ -237,9 +256,12 @@ class MCBShotApp(QObject):
                     set_autostart(False)
                 return
             enabled = current is not None
-            # Kayıttaki program artık yoksa (taşındı/silindi) yolu bu kopyaya çevir
-            registered = current.split('"')[1] if current and current.startswith('"') else current
-            if enabled and registered and not os.path.exists(registered):
+            # Kayıttaki program artık yoksa (taşındı/silindi) yolu bu kopyaya çevir. Bu kopyaysa ama
+            # eski biçimdeyse (açılış işareti yok) yenisiyle değiştir.
+            registered = _program_of(current)
+            if enabled and registered and (not os.path.exists(registered) or (
+                    os.path.normcase(registered) == os.path.normcase(_program_of(autostart_command()))
+                    and current != autostart_command())):
                 set_autostart(True)
             if bool(self.settings.get("start_with_windows")) != enabled:
                 self.settings.set("start_with_windows", enabled)
@@ -282,12 +304,11 @@ class MCBShotApp(QObject):
                 self.notify(tr("MCBShot güncel ({version}).", version=__version__))
             return
         self._update_release = release
-        open_page = lambda: QDesktopServices.openUrl(QUrl(release.page))  # noqa: E731
         if not updater.is_frozen() or not release.asset_url or \
                 (not updater.is_installed() and not updater.can_replace_portable()):
             # Kendini güncelleyemiyor (geliştirme kopyası, yazılamayan klasör…): sürüm sayfasını göster
             self.notify(tr("Yeni sürüm var: MCBShot {version}. İndirmek için tıklayın.", version=release.version),
-                        ms=8000, on_click=open_page)
+                        ms=8000, link=release.page)
             return
         if manual:
             self.notify(tr("Yeni sürüm indiriliyor: MCBShot {version}…", version=release.version))
@@ -463,8 +484,8 @@ class MCBShotApp(QObject):
         except Exception:
             log.exception("Kaydırmalı görüntü geçmişe eklenemedi")
             entry_id = ""
-        self.notify(tr("Uzun ekran görüntüsü hazır ({w}×{h}) ve panoya kopyalandı. Düzenleyicide açıldı.",
-                       w=image.width(), h=image.height()) + notes.get(reason, ""), ms=6000)
+        self.notify(tr("Uzun ekran görüntüsü hazır ({w}×{h})\nPanoya kopyalandı ve düzenleyicide açıldı.",
+                       w=image.width(), h=image.height()) + notes.get(reason, ""), ms=6000, image=image)
         if entry_id:
             self._index_text(entry_id, image)
             self.open_editor(entry_id)
@@ -503,11 +524,8 @@ class MCBShotApp(QObject):
             session.deleteLater()
 
     def _on_saved(self, path: str) -> None:
-        def show_in_folder():
-            if os.path.exists(path):
-                subprocess.Popen(f'explorer /select,"{os.path.normpath(path)}"')
         self.notify(tr("Kaydedildi: {name}\nKlasörde göstermek için tıklayın.", name=os.path.basename(path)),
-                    on_click=show_in_folder)
+                    link=path, image=QImage(path))
 
     # ---- tepsi ----
     def _on_tray_activated(self, reason) -> None:
@@ -533,8 +551,23 @@ class MCBShotApp(QObject):
         # Arka planda süren OCR/indirme işleri bitmeden süreç kapanırsa Windows uygulamayı çökertir
         QThreadPool.globalInstance().waitForDone(5000)
         self.history.close()
+        self.notifier.clear()
         self.tray.hide()
         self.app.quit()
+
+
+def _folder_of(link: str | None) -> str | None:
+    """Windows bildirimi dosyayı seçili gösteremez: dosya yerine bulunduğu klasörü aç."""
+    if link and "://" not in link and os.path.isfile(link):
+        return os.path.dirname(link)
+    return link
+
+
+def _program_of(command: str | None) -> str | None:
+    """Kayıttaki komuttan ('"...MCBShot.exe" --autostart') çalıştırılan dosyanın yolu."""
+    if not command:
+        return None
+    return command.split('"')[1] if command.startswith('"') else command.split(" ")[0]
 
 
 def _setup_logging() -> str:
@@ -574,7 +607,7 @@ def main() -> int:
 
     try:
         # Bildirimlerde "python" yerine MCBShot görünsün
-        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("MCBShot.App")
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(APP_NAME)
     except (AttributeError, OSError):
         pass
 

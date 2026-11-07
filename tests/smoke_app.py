@@ -16,6 +16,9 @@ from mcbshot.settings import Settings
 hist.history_dir = lambda: __import__("pathlib").Path(tmp) / "history"
 appmod.Settings = lambda: Settings(os.path.join(tmp, "settings.json"))
 appmod.SettingsDialog.exec = lambda self: 0
+# Testler kullanıcının ekranına gerçek bildirim düşürmesin
+notes = []
+appmod.MCBShotApp.notify = lambda self, text, *a, **k: notes.append((text, k.get("image") is not None))
 
 def pump(sec):
     t = time.time()
@@ -47,6 +50,7 @@ a._on_scroll_finished(img, "ok"); pump(0.3)
 entries = a.history.entries()
 print("history entries:", len(entries), entries[0].width, "x", entries[0].height if entries else None)
 print("editor opened:", list(a._editors))
+print("notifications:", [(t[:40], img) for t, img in notes])
 for w in list(a._editors.values()): w.close()
 pump(0.3)
 a.show_gallery(); pump(0.3); print("gallery items:", a._gallery.list.count()); a._gallery.close()

@@ -73,8 +73,8 @@ EN: dict[str, str] = {
     " En fazla uzunluğa ulaşıldığı için durduruldu.": " Stopped because the maximum length was reached.",
     " Sayfanın bir kısmı eşleştirilemediği için orada durduruldu (sayfada hareketli içerik olabilir).":
         " Stopped where part of the page could not be matched (the page may have moving content).",
-    "Uzun ekran görüntüsü hazır ({w}×{h}) ve panoya kopyalandı. Düzenleyicide açıldı.":
-        "Long screenshot ready ({w}×{h}) and copied to the clipboard. Opened in the editor.",
+    "Uzun ekran görüntüsü hazır ({w}×{h})\nPanoya kopyalandı ve düzenleyicide açıldı.":
+        "Long screenshot ready ({w}×{h})\nCopied to the clipboard and opened in the editor.",
     "Kaydedildi: {name}\nKlasörde göstermek için tıklayın.": "Saved: {name}\nClick to show it in its folder.",
     "Beklenmeyen bir hata oluştu:\n{error}\n\nAyrıntılar: {log}": "An unexpected error occurred:\n{error}\n\nDetails: {log}",
     "MCBShot zaten çalışıyor.\nSaatin yanındaki sistem tepsisinde simgesini bulabilirsiniz.":

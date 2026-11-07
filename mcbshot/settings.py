@@ -93,15 +93,18 @@ class Settings:
 _RUN_KEY = r"Software\Microsoft\Windows\CurrentVersion\Run"
 
 
+AUTOSTART_ARG = "--autostart"   # Windows açılışında başlatıldığını belirtir (karşılama bildirimi gösterilmez)
+
+
 def autostart_command() -> str:
     """Windows açılışında çalıştırılacak komut (.exe ya da pythonw + run.py)."""
     if getattr(sys, "frozen", False):
-        return f'"{sys.executable}"'
+        return f'"{sys.executable}" {AUTOSTART_ARG}'
     pythonw = Path(sys.executable).with_name("pythonw.exe")
     if not pythonw.exists():
         pythonw = Path(sys.executable)
     script = Path(__file__).resolve().parent.parent / "run.py"
-    return f'"{pythonw}" "{script}"'
+    return f'"{pythonw}" "{script}" {AUTOSTART_ARG}'
 
 
 def get_autostart(name: str = APP_NAME) -> str | None:

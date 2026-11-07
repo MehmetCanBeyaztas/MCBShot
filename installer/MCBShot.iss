@@ -61,13 +61,14 @@ Source: "..\README.tr.md"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\LICENSE"; DestDir: "{app}"; DestName: "LICENSE.txt"; Flags: ignoreversion
 
 [Icons]
-Name: "{autoprograms}\{#AppName}"; Filename: "{app}\{#AppExe}"
+; AppUserModelID programınkiyle aynı: bildirimlerde ad ve simge bu kısayoldan alınır
+Name: "{autoprograms}\{#AppName}"; Filename: "{app}\{#AppExe}"; AppUserModelID: "{#AppName}"
 Name: "{autodesktop}\{#AppName}"; Filename: "{app}\{#AppExe}"; Tasks: desktopicon
 
 [Registry]
 ; Uygulamanın kendi "Windows ile başlat" ayarıyla aynı kayıt.
 ; Programın kendi güncellemesinde yazılmaz: kullanıcının Ayarlar'daki seçimi korunsun.
-Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "MCBShot"; ValueData: """{app}\{#AppExe}"""; Tasks: autostart; Check: not IsAppUpdate
+Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "MCBShot"; ValueData: """{app}\{#AppExe}"" --autostart"; Tasks: autostart; Check: not IsAppUpdate
 
 [Run]
 Filename: "{app}\{#AppExe}"; Description: "{cm:LaunchApp}"; Flags: nowait postinstall skipifsilent
@@ -87,7 +88,11 @@ end;
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
 begin
   if CurUninstallStep = usUninstall then
+  begin
     RegDeleteValue(HKEY_CURRENT_USER, 'Software\Microsoft\Windows\CurrentVersion\Run', 'MCBShot');
+    // Bildirimlerde kullanılan ad ve simge kaydı
+    RegDeleteKeyIncludingSubkeys(HKEY_CURRENT_USER, 'Software\Classes\AppUserModelId\MCBShot');
+  end;
 
   if CurUninstallStep = usPostUninstall then
   begin
